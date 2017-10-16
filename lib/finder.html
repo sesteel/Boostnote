@@ -21,9 +21,15 @@
     font-weight: normal;
     text-rendering: optimizeLegibility;
   }
+  #drag-space {
+    -webkit-app-region: drag;
+    height: 20px;
+    width: 100%;
+  }
   </style>
 </head>
 <body>
+  <div id="drag-space"></div>
   <div id="content"></div>
 
   <script src="../node_modules/codemirror/lib/codemirror.js"></script>

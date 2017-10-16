@@ -53,9 +53,18 @@
     font-weight: 100;
     color: #888;
   }
+  body {
+    margin: 0;
+  }
+  #drag-space {
+    -webkit-app-region: drag;
+    height: 20px;
+    width: 100%;
+  }
   </style>
 </head>
 <body>
+  <div id="drag-space"></div>
   <div id="loadingCover">
     <img src="../resources/app.png">
     <div class='message'><i class="fa fa-spinner fa-spin" spin></i></div>
