@@ -15,7 +15,6 @@ $control-height = 34px
   top 13px
   right 7px
   height $control-height
-  overflow hidden
   display flex
 
 .control-newNoteButton
@@ -33,16 +32,24 @@ $control-height = 34px
 
 .control-newNoteButton-tooltip
   tooltip()
-  position fixed
+  position absolute
   pointer-events none
-  top 50px
-  left 433px
+  top 26px
+  right -43px
+  width 124px
   z-index 200
   padding 5px
   line-height normal
   border-radius 2px
   opacity 0
   transition 0.1s
+
+body[data-theme="white"]
+  .root, .root--expanded
+    background-color $ui-white-noteList-backgroundColor
+
+  .control-newNoteButton
+    background-color $ui-white-noteList-backgroundColor
 
 body[data-theme="dark"]
   .root, .root--expanded
@@ -64,3 +71,15 @@ body[data-theme="dark"]
 
   .control-newNoteButton-tooltip
     darkTooltip()
+
+body[data-theme="solarized-dark"]
+  .root, .root--expanded
+    background-color $ui-solarized-dark-noteList-backgroundColor
+
+body[data-theme="monokai"]
+  .root, .root--expanded
+    background-color $ui-monokai-noteList-backgroundColor
+
+body[data-theme="dracula"]
+  .root, .root--expanded
+    background-color $ui-dracula-noteList-backgroundColor

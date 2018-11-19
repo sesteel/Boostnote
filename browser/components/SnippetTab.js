@@ -2,6 +2,7 @@ import React from 'react'
 import CSSModules from 'browser/lib/CSSModules'
 import styles from './SnippetTab.styl'
 import context from 'browser/lib/context'
+import i18n from 'browser/lib/i18n'
 
 class SnippetTab extends React.Component {
   constructor (props) {
@@ -28,7 +29,7 @@ class SnippetTab extends React.Component {
   handleContextMenu (e) {
     context.popup([
       {
-        label: 'Rename',
+        label: i18n.__('Rename'),
         click: (e) => this.handleRenameClick(e)
       }
     ])
@@ -54,10 +55,10 @@ class SnippetTab extends React.Component {
         this.handleRename()
         break
       case 27:
-        this.setState({
-          name: this.props.snippet.name,
+        this.setState((prevState, props) => ({
+          name: props.snippet.name,
           isRenaming: false
-        })
+        }))
         break
     }
   }
@@ -85,8 +86,17 @@ class SnippetTab extends React.Component {
     })
   }
 
+  handleDragStart (e) {
+    e.dataTransfer.dropEffect = 'move'
+    this.props.onDragStart(e)
+  }
+
+  handleDrop (e) {
+    this.props.onDrop(e)
+  }
+
   render () {
-    let { isActive, snippet, isDeletable } = this.props
+    const { isActive, snippet, isDeletable } = this.props
     return (
       <div styleName={isActive
           ? 'root--active'
@@ -98,11 +108,14 @@ class SnippetTab extends React.Component {
             onClick={(e) => this.handleClick(e)}
             onDoubleClick={(e) => this.handleRenameClick(e)}
             onContextMenu={(e) => this.handleContextMenu(e)}
+            onDragStart={(e) => this.handleDragStart(e)}
+            onDrop={(e) => this.handleDrop(e)}
+            draggable='true'
           >
             {snippet.name.trim().length > 0
               ? snippet.name
               : <span styleName='button-unnamed'>
-                Unnamed
+                {i18n.__('Unnamed')}
               </span>
             }
           </button>
@@ -127,6 +140,7 @@ class SnippetTab extends React.Component {
 }
 
 SnippetTab.propTypes = {
+
 }
 
 export default CSSModules(SnippetTab, styles)

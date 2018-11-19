@@ -1,11 +1,12 @@
-import React, { PropTypes } from 'react'
+import PropTypes from 'prop-types'
+import React from 'react'
 import CSSModules from 'browser/lib/CSSModules'
 import styles from './MarkdownEditor.styl'
 import CodeEditor from 'browser/components/CodeEditor'
 import MarkdownPreview from 'browser/components/MarkdownPreview'
 import eventEmitter from 'browser/main/lib/eventEmitter'
 import { findStorage } from 'browser/lib/findStorage'
-const _ = require('lodash')
+import ConfigManager from 'browser/main/lib/ConfigManager'
 
 class MarkdownEditor extends React.Component {
   constructor (props) {
@@ -18,7 +19,7 @@ class MarkdownEditor extends React.Component {
     this.supportMdSelectionBold = [16, 17, 186]
 
     this.state = {
-      status: 'PREVIEW',
+      status: props.config.editor.switchPreview === 'RIGHTCLICK' ? props.config.editor.delfaultStatus : 'PREVIEW',
       renderValue: props.value,
       keyPressed: new Set(),
       isLocked: false
@@ -64,17 +65,19 @@ class MarkdownEditor extends React.Component {
     })
   }
 
+  setValue (value) {
+    this.refs.code.setValue(value)
+  }
+
   handleChange (e) {
     this.value = this.refs.code.value
     this.props.onChange(e)
   }
 
   handleContextMenu (e) {
-    let { config } = this.props
+    const { config } = this.props
     if (config.editor.switchPreview === 'RIGHTCLICK') {
-      let newStatus = this.state.status === 'PREVIEW'
-        ? 'CODE'
-        : 'PREVIEW'
+      const newStatus = this.state.status === 'PREVIEW' ? 'CODE' : 'PREVIEW'
       this.setState({
         status: newStatus
       }, () => {
@@ -84,6 +87,10 @@ class MarkdownEditor extends React.Component {
           this.refs.preview.focus()
         }
         eventEmitter.emit('topbar:togglelockbutton', this.state.status)
+
+        const newConfig = Object.assign({}, config)
+        newConfig.editor.delfaultStatus = newStatus
+        ConfigManager.set(newConfig)
       })
     }
   }
@@ -91,9 +98,11 @@ class MarkdownEditor extends React.Component {
   handleBlur (e) {
     if (this.state.isLocked) return
     this.setState({ keyPressed: new Set() })
-    let { config } = this.props
-    if (config.editor.switchPreview === 'BLUR') {
-      let cursorPosition = this.refs.code.editor.getCursor()
+    const { config } = this.props
+    if (config.editor.switchPreview === 'BLUR' ||
+        (config.editor.switchPreview === 'DBL_CLICK' && this.state.status === 'CODE')
+    ) {
+      const cursorPosition = this.refs.code.editor.getCursor()
       this.setState({
         status: 'PREVIEW'
       }, () => {
@@ -104,12 +113,26 @@ class MarkdownEditor extends React.Component {
     }
   }
 
+  handleDoubleClick (e) {
+    if (this.state.isLocked) return
+    this.setState({keyPressed: new Set()})
+    const { config } = this.props
+    if (config.editor.switchPreview === 'DBL_CLICK') {
+      this.setState({
+        status: 'CODE'
+      }, () => {
+        this.refs.code.focus()
+        eventEmitter.emit('topbar:togglelockbutton', this.state.status)
+      })
+    }
+  }
+
   handlePreviewMouseDown (e) {
     this.previewMouseDownedAt = new Date()
   }
 
   handlePreviewMouseUp (e) {
-    let { config } = this.props
+    const { config } = this.props
     if (config.editor.switchPreview === 'BLUR' && new Date() - this.previewMouseDownedAt < 200) {
       this.setState({
         status: 'CODE'
@@ -123,21 +146,21 @@ class MarkdownEditor extends React.Component {
   handleCheckboxClick (e) {
     e.preventDefault()
     e.stopPropagation()
-    let idMatch = /checkbox-([0-9]+)/
-    let checkedMatch = /\[x\]/i
-    let uncheckedMatch = /\[ \]/
+    const idMatch = /checkbox-([0-9]+)/
+    const checkedMatch = /^\s*[\+\-\*] \[x\]/i
+    const uncheckedMatch = /^\s*[\+\-\*] \[ \]/
     if (idMatch.test(e.target.getAttribute('id'))) {
-      let lineIndex = parseInt(e.target.getAttribute('id').match(idMatch)[1], 10) - 1
-      let lines = this.refs.code.value
+      const lineIndex = parseInt(e.target.getAttribute('id').match(idMatch)[1], 10) - 1
+      const lines = this.refs.code.value
         .split('\n')
 
-      let targetLine = lines[lineIndex]
+      const targetLine = lines[lineIndex]
 
       if (targetLine.match(checkedMatch)) {
-        lines[lineIndex] = targetLine.replace(checkedMatch, '[ ]')
+        lines[lineIndex] = targetLine.replace(checkedMatch, '- [ ]')
       }
       if (targetLine.match(uncheckedMatch)) {
-        lines[lineIndex] = targetLine.replace(uncheckedMatch, '[x]')
+        lines[lineIndex] = targetLine.replace(uncheckedMatch, '- [x]')
       }
       this.refs.code.setValue(lines.join('\n'))
     }
@@ -163,12 +186,12 @@ class MarkdownEditor extends React.Component {
   }
 
   handleKeyDown (e) {
-    let { config } = this.props
+    const { config } = this.props
     if (this.state.status !== 'CODE') return false
     const keyPressed = this.state.keyPressed
     keyPressed.add(e.keyCode)
     this.setState({ keyPressed })
-    let isNoteHandlerKey = (el) => { return keyPressed.has(el) }
+    const isNoteHandlerKey = (el) => { return keyPressed.has(el) }
     // These conditions are for ctrl-e and ctrl-w
     if (keyPressed.size === this.escapeFromEditor.length &&
         !this.state.isLocked && this.state.status === 'CODE' &&
@@ -207,14 +230,14 @@ class MarkdownEditor extends React.Component {
   }
 
   render () {
-    let { className, value, config, storageKey } = this.props
+    const {className, value, config, storageKey, noteKey} = this.props
 
     let editorFontSize = parseInt(config.editor.fontSize, 10)
     if (!(editorFontSize > 0 && editorFontSize < 101)) editorFontSize = 14
     let editorIndentSize = parseInt(config.editor.indentSize, 10)
     if (!(editorFontSize > 0 && editorFontSize < 132)) editorIndentSize = 4
 
-    let previewStyle = {}
+    const previewStyle = {}
     if (this.props.ignorePreviewPointerEvents) previewStyle.pointerEvents = 'none'
 
     const storage = findStorage(storageKey)
@@ -234,7 +257,7 @@ class MarkdownEditor extends React.Component {
             : 'codeEditor--hide'
           }
           ref='code'
-          mode='GitHub Flavored Markdown'
+          mode='Boost Flavored Markdown'
           value={value}
           theme={config.editor.theme}
           keyMap={config.editor.keyMap}
@@ -242,7 +265,14 @@ class MarkdownEditor extends React.Component {
           fontSize={editorFontSize}
           indentType={config.editor.indentType}
           indentSize={editorIndentSize}
+          enableRulers={config.editor.enableRulers}
+          rulers={config.editor.rulers}
+          displayLineNumbers={config.editor.displayLineNumbers}
+          scrollPastEnd={config.editor.scrollPastEnd}
           storageKey={storageKey}
+          noteKey={noteKey}
+          fetchUrlTitle={config.editor.fetchUrlTitle}
+          enableTableEditor={config.editor.enableTableEditor}
           onChange={(e) => this.handleChange(e)}
           onBlur={(e) => this.handleBlur(e)}
         />
@@ -259,8 +289,14 @@ class MarkdownEditor extends React.Component {
           codeBlockFontFamily={config.editor.fontFamily}
           lineNumber={config.preview.lineNumber}
           indentSize={editorIndentSize}
+          scrollPastEnd={config.preview.scrollPastEnd}
+          smartQuotes={config.preview.smartQuotes}
+          smartArrows={config.preview.smartArrows}
+          breaks={config.preview.breaks}
+          sanitize={config.preview.sanitize}
           ref='preview'
           onContextMenu={(e) => this.handleContextMenu(e)}
+          onDoubleClick={(e) => this.handleDoubleClick(e)}
           tabIndex='0'
           value={this.state.renderValue}
           onMouseUp={(e) => this.handlePreviewMouseUp(e)}
@@ -268,6 +304,10 @@ class MarkdownEditor extends React.Component {
           onCheckboxClick={(e) => this.handleCheckboxClick(e)}
           showCopyNotification={config.ui.showCopyNotification}
           storagePath={storage.path}
+          noteKey={noteKey}
+          customCSS={config.preview.customCSS}
+          allowCustomCSS={config.preview.allowCustomCSS}
+          lineThroughCheckbox={config.preview.lineThroughCheckbox}
         />
       </div>
     )

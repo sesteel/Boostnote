@@ -1,4 +1,5 @@
-import React, { PropTypes } from 'react'
+import PropTypes from 'prop-types'
+import React from 'react'
 import CSSModules from 'browser/lib/CSSModules'
 import styles from './Detail.styl'
 import _ from 'lodash'
@@ -6,6 +7,9 @@ import MarkdownNoteDetail from './MarkdownNoteDetail'
 import SnippetNoteDetail from './SnippetNoteDetail'
 import ee from 'browser/main/lib/eventEmitter'
 import StatusBar from '../StatusBar'
+import i18n from 'browser/lib/i18n'
+import debounceRender from 'react-debounce-render'
+import searchFromNotes from 'browser/lib/search'
 
 const OSX = global.process.platform === 'darwin'
 
@@ -32,14 +36,38 @@ class Detail extends React.Component {
   }
 
   render () {
-    let { location, data, config } = this.props
+    const { location, data, params, config } = this.props
     let note = null
-    if (location.query.key != null) {
-      let splitted = location.query.key.split('-')
-      let storageKey = splitted.shift()
-      let noteKey = splitted.shift()
 
-      note = data.noteMap.get(storageKey + '-' + noteKey)
+    if (location.query.key != null) {
+      const noteKey = location.query.key
+      const allNotes = data.noteMap.map(note => note)
+      const trashedNotes = data.trashedSet.toJS().map(uniqueKey => data.noteMap.get(uniqueKey))
+      let displayedNotes = allNotes
+
+      if (location.pathname.match(/\/searched/)) {
+        const searchStr = params.searchword
+        displayedNotes = searchStr === undefined || searchStr === '' ? allNotes
+          : searchFromNotes(allNotes, searchStr)
+      }
+
+      if (location.pathname.match(/\/tags/)) {
+        const listOfTags = params.tagname.split(' ')
+        displayedNotes = data.noteMap.map(note => note).filter(note =>
+          listOfTags.every(tag => note.tags.includes(tag))
+        )
+      }
+
+      if (location.pathname.match(/\/trashed/)) {
+        displayedNotes = trashedNotes
+      } else {
+        displayedNotes = _.differenceWith(displayedNotes, trashedNotes, (note, trashed) => note.key === trashed.key)
+      }
+
+      const noteKeys = displayedNotes.map(note => note.key)
+      if (noteKeys.includes(noteKey)) {
+        note = data.noteMap.get(noteKey)
+      }
     }
 
     if (note == null) {
@@ -49,7 +77,7 @@ class Detail extends React.Component {
           tabIndex='0'
         >
           <div styleName='empty'>
-            <div styleName='empty-message'>{OSX ? 'Command(⌘)' : 'Ctrl(^)'} + N<br />to create a new note</div>
+            <div styleName='empty-message'>{OSX ? i18n.__('Command(⌘)') : i18n.__('Ctrl(^)')} + N<br />{i18n.__('to create a new note')}</div>
           </div>
           <StatusBar
             {..._.pick(this.props, ['config', 'location', 'dispatch'])}
@@ -100,4 +128,4 @@ Detail.propTypes = {
   ignorePreviewPointerEvents: PropTypes.bool
 }
 
-export default CSSModules(Detail, styles)
+export default debounceRender(CSSModules(Detail, styles))
